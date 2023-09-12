@@ -4,34 +4,6 @@ use std::env;
 use serde::Serialize;
 use serde::Deserialize;
 
-#[get("/info")]
-async fn get_info(query: web::Query<InfoParams>) -> impl Responder {
-    let slack_name = query.slack_name.clone();
-    let current_day = Utc::now().format("%A").to_string();
-    let utc_time = Utc::now().to_rfc3339();
-    let track = query.track.clone();
-    let github_file_url = format!(
-        "https://github.com/{}/{}/blob/main/{}",
-        query.github_username, query.github_repo, query.github_filename
-    );
-    let github_repo_url = format!(
-        "https://github.com/{}/{}",
-        query.github_username, query.github_repo
-    );
-
-    let response_data = InfoResponse {
-        slack_name,
-        current_day,
-        utc_time,
-        track,
-        github_file_url,
-        github_repo_url,
-        status_code: 200,
-    };
-
-    HttpResponse::Ok().json(response_data)
-}
-
 #[derive(Deserialize)]
 struct InfoParams {
     slack_name: String,
@@ -52,7 +24,43 @@ struct InfoResponse {
     status_code: i32,
 }
 
-async fn run_server() -> std::io::Result<()> {
+#[get("/info")]
+async fn get_info(query: web::Query<InfoParams>) -> impl Responder {
+    // Extract parameters from the query
+    let slack_name = &query.slack_name;
+    let track = &query.track;
+    let github_username = &query.github_username;
+    let github_repo = &query.github_repo;
+    let github_filename = &query.github_filename;
+
+    // Get the current day and time
+    let current_day = Utc::now().format("%A").to_string();
+    let utc_time = Utc::now().to_rfc3339();
+
+    // Construct the GitHub URLs
+    let github_file_url = format!(
+        "https://github.com/{}/{}/blob/main/{}",
+        github_username, github_repo, github_filename
+    );
+    let github_repo_url = format!("https://github.com/{}/{}", github_username, github_repo);
+
+    // Create the response data
+    let response_data = InfoResponse {
+        slack_name: slack_name.clone(),
+        current_day,
+        utc_time,
+        track: track.clone(),
+        github_file_url,
+        github_repo_url,
+        status_code: 200,
+    };
+
+    // Return the response as JSON
+    HttpResponse::Ok().json(response_data)
+}
+
+#[actix_rt::main]
+async fn main() -> std::io::Result<()> {
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
 
@@ -62,8 +70,4 @@ async fn run_server() -> std::io::Result<()> {
     .bind(format!("{}:{}", host, port))?
     .run()
     .await
-}
-
-fn main() {
-    let _ = run_server();
 }
